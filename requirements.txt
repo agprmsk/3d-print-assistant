@@ -4,6 +4,9 @@ python-dotenv
 requests
 beautifulsoup4
 langchain
+langchain-text-splitters
+langchain-community
 chromadb
+openai
 sentence-transformers
 pydantic
