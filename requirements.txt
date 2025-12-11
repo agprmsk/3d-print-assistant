@@ -1,12 +1,26 @@
-fastapi
-uvicorn[standard]
-python-dotenv
-requests
-beautifulsoup4
-langchain
-langchain-text-splitters
-langchain-community
-chromadb
-openai
-sentence-transformers
-pydantic
+# API
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# Web scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+lxml>=5.1.0
+
+# ML/RAG
+torch>=2.9.0
+sentence-transformers>=2.3.0
+transformers>=4.36.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+
+# Vector DB - FAISS
+faiss-cpu>=1.7.4
+
+# Text processing
+langchain-text-splitters>=0.3.0
+
+# Телеграм-бот
+python-telegram-bot==20.7

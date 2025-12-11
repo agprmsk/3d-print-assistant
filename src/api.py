@@ -1,19 +1,102 @@
-from fastapi import FastAPI
+# src/api.py
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from .rag_pipeline import handle_user_query
+from typing import Optional
+import os
+from dotenv import load_dotenv
+from src.rag_pipeline import RAGPipeline
 
-app = FastAPI(title="3D Printing Assistant")
+# Загрузка переменных окружения
+load_dotenv()
 
-class ChatRequest(BaseModel):
-    query: str
-    dialog_context: str | None = ""
+# Инициализация FastAPI
+app = FastAPI(
+    title="3D Print Assistant API",
+    description="RAG-система для помощи в 3D-печати",
+    version="1.0.0"
+)
 
-class ChatResponse(BaseModel):
-    category: str
+# Инициализация RAG при старте приложения
+rag_pipeline = None
+
+@app.on_event("startup")
+async def startup_event():
+    """Инициализация RAG-системы при запуске"""
+    global rag_pipeline
+    print("🚀 Запуск 3D Print Assistant API...")
+    print("🔧 Инициализация RAG-системы...")
+    rag_pipeline = RAGPipeline()
+    print("✅ RAG-система готова к работе!")
+
+# Модели данных
+class QueryRequest(BaseModel):
+    question: str
+    top_k: Optional[int] = 3
+
+class QueryResponse(BaseModel):
+    question: str
     answer: str
-    sources: list[str]
+    sources_count: int
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(req: ChatRequest):
-    result = handle_user_query(req.query, dialog_context=req.dialog_context or "")
-    return ChatResponse(**result)
+# Эндпоинты
+@app.get("/")
+async def root():
+    """Корневой эндпоинт"""
+    return {
+        "message": "3D Print Assistant API",
+        "version": "1.0.0",
+        "endpoints": {
+            "/query": "POST - Задать вопрос системе",
+            "/health": "GET - Проверка состояния",
+            "/docs": "GET - Документация API"
+        }
+    }
+
+@app.get("/health")
+async def health_check():
+    """Проверка состояния системы"""
+    return {
+        "status": "healthy",
+        "rag_initialized": rag_pipeline is not None
+    }
+
+@app.post("/query", response_model=QueryResponse)
+async def query_rag(request: QueryRequest):
+    """
+    Задать вопрос RAG-системе
+    
+    Args:
+        request: Объект запроса с вопросом и параметрами
+    
+    Returns:
+        Ответ системы с источниками
+    """
+    if rag_pipeline is None:
+        raise HTTPException(
+            status_code=503,
+            detail="RAG-система не инициализирована"
+        )
+    
+    try:
+        # Получение ответа
+        answer = rag_pipeline.query(
+            question=request.question,
+            top_k=request.top_k
+        )
+        
+        return QueryResponse(
+            question=request.question,
+            answer=answer,
+            sources_count=request.top_k
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка при обработке запроса: {str(e)}"
+        )
+
+# Запуск: uvicorn api:app --reload --host 0.0.0.0 --port 8000
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
