@@ -20,8 +20,9 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Perplexity API
 PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
-PPLX_MODEL_GENERAL = os.getenv("PPLX_MODEL_GENERAL", "llama-3.1-sonar-small-128k-online")
-PPLX_MODEL_STRICT = os.getenv("PPLX_MODEL_STRICT", "llama-3.1-sonar-small-128k-online")
+# Обновлённые названия моделей Perplexity (декабрь 2024)
+PPLX_MODEL_GENERAL = os.getenv("PPLX_MODEL_GENERAL", "sonar")
+PPLX_MODEL_STRICT = os.getenv("PPLX_MODEL_STRICT", "sonar")
 
 # Параметры RAG
 CHUNK_SIZE = 800

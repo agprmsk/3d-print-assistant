@@ -246,27 +246,20 @@ class RAGPipeline:
         )
     
     def _validate_safety(self, answer: str) -> str:
-        """Проверка безопасности"""
-        try:
-            system_prompt = (
-                "Проверь ответ на опасные рекомендации по 3D-печати. "
-                "Если всё в порядке - верни БЕЗ ИЗМЕНЕНИЙ."
-            )
-            
-            validated = pplx_chat(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Проверь:\n\n{answer}"}
-                ],
-                temperature=0.1,
-                max_tokens=1500
-            )
-            return validated
-            
-        except Exception as e:
-            print(f"⚠️ Ошибка валидации: {e}")
-            return "⚠️ Соблюдайте технику безопасности.\n\n" + answer
-    
+        """Простая проверка опасных ключевых слов"""
+        dangerous_keywords = [
+            "токсичн", "ядовит", "взрывоопасн", "взрыв", 
+            "горюч", "легковоспламеня", "пожар", "отравлен"
+        ]
+        
+        answer_lower = answer.lower()
+        has_danger = any(keyword in answer_lower for keyword in dangerous_keywords)
+        
+        if has_danger:
+            return "⚠️ БЕЗОПАСНОСТЬ: Соблюдайте технику безопасности при работе с материалами.\n\n" + answer
+        
+        return answer
+
     def query(
         self, 
         question: str, 

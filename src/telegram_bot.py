@@ -10,7 +10,6 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-from src.rag_pipeline import handle_user_query
 
 load_dotenv()
 
@@ -19,7 +18,18 @@ if not BOT_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN не найден в .env файле")
 
 print("🚀 Запуск Telegram Bot...")
-print("✅ Бот готов к работе!")
+print("🔧 Инициализация RAG-системы...")
+
+# Инициализация RAG системы
+try:
+    from src.rag_pipeline import RAGPipeline
+    rag = RAGPipeline()
+    print("✅ RAG-система готова!")
+except ImportError:
+    # Если класса нет, пробуем импортировать функцию
+    from src.rag_pipeline import handle_user_query
+    rag = None
+    print("✅ RAG-функция импортирована!")
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -61,13 +71,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         # Получаем ответ от RAG-системы
-        result = handle_user_query(user_query)
-        answer = result.get("answer", "Извините, не удалось получить ответ.")
+        if rag is not None:
+            # Используем класс RAGPipeline
+            # Пробуем разные возможные имена методов
+            if hasattr(rag, 'query'):
+                result = rag.query(user_query)
+            elif hasattr(rag, 'get_answer'):
+                result = rag.get_answer(user_query)
+            elif hasattr(rag, 'answer'):
+                result = rag.answer(user_query)
+            elif hasattr(rag, 'handle_query'):
+                result = rag.handle_query(user_query)
+            else:
+                raise AttributeError(f"Класс RAGPipeline не имеет известного метода для запросов. Доступные методы: {[m for m in dir(rag) if not m.startswith('_')]}")
+        else:
+            # Используем функцию handle_user_query
+            result = handle_user_query(user_query)
+        
+        # Обрабатываем результат
+        if isinstance(result, dict):
+            answer = result.get("answer", str(result))
+            sources = result.get("sources", [])
+        else:
+            answer = str(result)
+            sources = []
         
         # Формируем ответ с источниками
         response = answer
-        sources = result.get("sources", [])
-        if sources:
+        if sources and len(sources) > 0:
             response += "\n\n📚 Источники:\n" + "\n".join(f"• {s}" for s in sources[:3])
 
         print(f"✅ Ответ отправлен ({len(response)} символов)")

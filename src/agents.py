@@ -1,6 +1,6 @@
 from typing import Literal
 from .models import pplx_chat
-from .embeddings_store import get_vector_store
+from .embeddings_store_faiss import get_vector_store
 
 Category = Literal[
     "основы",
@@ -32,8 +32,36 @@ def classify_query(user_query: str) -> Category:
     return "другое"  # type: ignore[return-value]
 
 def retrieve_knowledge(user_query: str, k: int = 6):
-    vectordb = get_vector_store()
-    return vectordb.similarity_search(user_query, k=k)
+    """Получение релевантных документов из FAISS"""
+    try:
+        # Импортируем класс
+        from .embeddings_store_faiss import EmbeddingsStoreFAISS
+        
+        # Создаём экземпляр и загружаем индекс
+        store = EmbeddingsStoreFAISS()
+        if not store.load():
+            print("⚠️ FAISS индекс не найден")
+            return []
+        
+        # Выполняем поиск
+        results = store.search(user_query, k=k)
+        print(f"✅ Найдено {len(results)} релевантных документов")
+        
+        # Преобразуем результаты в формат, ожидаемый consultant_answer
+        # Создаём объекты с атрибутами page_content и metadata
+        class Document:
+            def __init__(self, text, metadata):
+                self.page_content = text
+                self.metadata = metadata
+        
+        documents = [Document(r['text'], r['metadata']) for r in results]
+        return documents
+        
+    except Exception as e:
+        print(f"⚠️ Ошибка FAISS поиска: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
 
 def consultant_answer(user_query: str, docs, dialog_context: str = "") -> str:
     context_text = "\n\n".join(
@@ -59,19 +87,18 @@ def consultant_answer(user_query: str, docs, dialog_context: str = "") -> str:
         temperature=0.4,
         max_tokens=900,
     )
-
 def safety_check(answer: str) -> str:
-    system_prompt = (
-        "Ты проверяешь ответ по 3D-печати на безопасность. "
-        "Найди явно опасные советы (слишком высокие температуры, взрывоопасные материалы, "
-        "пренебрежение ТБ) и если они есть, перепиши ответ, убрав опасное и добавив предупреждения. "
-        "Если всё в порядке, верни ответ как есть."
-    )
-    return pplx_chat(
-        [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": answer},
-        ],
-        temperature=0.1,
-        max_tokens=900,
-    )
+    """Простая проверка опасных ключевых слов"""
+    dangerous_keywords = [
+        "токсичн", "ядовит", "взрывоопасн", "взрыв",
+        "горюч", "легковоспламеня", "пожар", "отравлен"
+    ]
+    
+    answer_lower = answer.lower()
+    has_danger = any(keyword in answer_lower for keyword in dangerous_keywords)
+    
+    if has_danger:
+        return "⚠️ БЕЗОПАСНОСТЬ: Соблюдайте технику безопасности при работе с материалами.\n\n" + answer
+    
+    return answer
+
